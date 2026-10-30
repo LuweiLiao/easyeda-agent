@@ -92,6 +92,30 @@ easyeda pcb export-3d --format step --project <project-uuid> --window <edadesk-w
 STEP 仅能包含从 STEP 导入的元件模型。导出后独立核对板体、器件、朝向、缺项及可旋转缩放；
 不以文件非空、命令成功或所有模型已绑定代替显示与完整性验证。
 
+### 制版文件导出（Gerber + 钻孔）
+
+```sh
+easyeda pcb export-gerber --project <project-uuid> --out ./fab/gerber-<日期>
+easyeda pcb export-gerber --project <project-uuid> --doc <pcb-uuid> --name FCU --out ./fab/rev-b
+```
+
+`pcb.export.gerber` 只走官方 beta `pcb_ManufactureData.getGerberFile`，只传文件名，
+其余参数由宿主按编辑器「导出 PCB 制版文件 → 一键导出」的默认值决定（mm、4:5、板内实际
+使用的层加钻孔层、嘉立创生产所需对象）。要求活动页是 PCB，原样传输返回文件，上限 20 MiB；
+导出前后核对活动文档，目标变化即拒收。接口说明：
+[getGerberFile](https://prodocs.lceda.cn/cn/api/reference/pro-api.pcb_manufacturedata.getgerberfile.html)。
+不保存、不跑 DRC、不改设计；导出前先 `pcb save` 并确认 DRC，导出的是当前画布内容。
+
+命令要求不存在的 `--out` 目录。先保存官方 ZIP（`gerber.zip`）与 `export-response.json`，
+再校验字节、哈希、ZIP 路径与展开上限，按内容（不按扩展名）识别 RS-274X Gerber（`%FS` … `M02*`）
+与 Excellon 钻孔（`M48` … `M30`），并要求至少有 Gerber、钻孔和板框层各一份。全部通过才解压到
+`files/` 并写 `manifest.json`（`status=export-verified`，含逐文件大小、哈希、类型与板框文件名）；
+任一不过只保留 ZIP 和应答，非零退出，不自动重试。
+
+`export-verified` 只说明文件完整、格式可解析，**不等于制造验收通过**。原生 DRC 与导出出自同一
+套代码，出厂前要在 `files/` 上做独立于 EDA 的核对：异网间距（含铺铜）、板框与板边距离、
+钻孔统计、阻焊开窗与盖油过孔、丝印。
+
 ### 参数化外壳（离线生成 STL）
 
 EDA 内置 3D 外壳没有创建接口，外壳由 CLI 离线生成，不写回工程：

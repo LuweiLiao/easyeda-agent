@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.15.1] - 2026-10-30
+
+- 新增 `pcb export-gerber`（`pcb.export.gerber`）：经官方 beta `getGerberFile` 按宿主一键导出默认值导出制版文件，保留官方 ZIP 并校验字节、哈希、ZIP 路径与展开上限，按内容识别 RS-274X Gerber 与 Excellon 钻孔，缺 Gerber、钻孔或板框层即拒收；通过后解压到 `files/` 并写逐文件清单。只证明文件完整可解析，不代替独立的制造核对。
+
 ## [1.15.0] - 2026-10-24
 
 - PCB 焊盘回读新增钻孔与金属化：`pcb.components.list --includePads` 的每个焊盘带原样的 `hole`（`["ROUND", d, d]`，10 mil 单位）、`metallization` 与 `availability.hole`，`pcb dump` 保留这两项。`pcb enclosure plan` 改为按真实孔径识别安装孔（≥ 2.1 mm 且焊盘无信号网络，按孔径选 M2–M6），不再按位号 H/MH 猜——真板上 H1–H4 常是排针；缺孔数据的旧 dump 只按 HOLE/MOUNT 封装名兜底并警告。ceshi 现场回读 111 个焊盘均带孔信息。

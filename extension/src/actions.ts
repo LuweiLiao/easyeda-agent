@@ -1,5 +1,6 @@
 import { projectOpen, projectExport, projectImport } from './project-transfer';
 import { pcbExport3D, pcbExport3DShell } from './pcb-export-3d';
+import { pcbExportGerber } from './pcb-export-gerber';
 import { pcbModel3dBind, pcbModel3dList, pcbModel3dSetTransform } from './pcb-model3d';
 import { PROJECTED_STATE_KEYS } from './projected-keys';
 import { moveSchematicAttribute } from './schematic-attribute-move';
@@ -16276,6 +16277,7 @@ const HANDLERS: Record<string, Handler> = {
 	'pcb.model3d.set_transform': pcbModel3dSetTransform,
 	'pcb.model3d.bind': pcbModel3dBind,
 	'pcb.export.3d_shell': pcbExport3DShell,
+	'pcb.export.gerber': pcbExportGerber,
 	'pcb.import_autoroute': pcbImportAutoroute,
 	'pcb.view.filter.get': pcbViewFilterGet,
 	'pcb.snapshot': pcbSnapshot,

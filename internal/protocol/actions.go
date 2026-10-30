@@ -1490,6 +1490,12 @@ func AllActions() []ActionSpec {
 			Outputs:     []string{"artifactId", "fileType", "fileName", "size", "exportContext"},
 		},
 		{
+			Name: "pcb.export.gerber", Domain: DomainPcb, Phase: 2, NeedsWindow: true,
+			Description: "Export the active PCB fabrication package through official beta getGerberFile with the host's one-click defaults (mm, 4:5, used layers + drill layers, JLC objects). Read-only; preserves the returned file (normally a ZIP), capped at 20 MiB. The CLI checks the archive and Gerber/Excellon syntax; it does not prove the package is manufacturable.",
+			Inputs:      []string{"fileName optional (basename, default gerber)"},
+			Outputs:     []string{"artifactId", "fileName", "size", "exportContext", "options=host-one-click-defaults"},
+		},
+		{
 			Name:        "pcb.export.dsn",
 			Domain:      DomainPcb,
 			Phase:       2,
