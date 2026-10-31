@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { runAction } from './actions';
 import { POUR_REBUILD_MIN_HEADROOM_MS, runPourRebuild, type RebuildablePour } from './pcb-pour-rebuild';
-import { ActionError, ErrorCodes } from './protocol';
 
 // rebuildCopperRegion resolves to the poured primitive (truthy) or undefined.
 function pour(id: string, net: string, behaviour: { ms?: number; result?: unknown; error?: string } = {}, clock?: { t: number }): RebuildablePour & { calls: number } {
@@ -79,20 +78,20 @@ function withHost(visibility: string, run: () => Promise<void>) {
 	}).then(() => drcCalls);
 }
 
-test('pcb.drc.check refuses a hidden page unless allowHidden', async () => {
+// 2026-10-31 GD32H757_FCU: native DRC finished in 7 s with the page hidden.
+test('pcb.drc.check runs on a hidden page', async () => {
 	const calls = await withHost('hidden', async () => {
-		await assert.rejects(runAction('pcb.drc.check', {}),
-			(e: unknown) => e instanceof ActionError && e.code === ErrorCodes.PRECONDITION_REFUSED && /foreground/.test(e.message));
-		await runAction('pcb.drc.check', { allowHidden: true });
+		const { result }: any = await runAction('pcb.drc.check', {});
+		assert.equal(result.passed, true);
 	});
 	assert.equal(calls, 1);
 });
 
-test('pcb.pour.rebuild warns on a hidden page but still runs', async () => {
+test('pcb.pour.rebuild runs on a hidden page and reports it', async () => {
 	await withHost('hidden', async () => {
 		const { result }: any = await runAction('pcb.pour.rebuild', {});
 		assert.equal(result.rebuilt, 1);
 		assert.equal(result.pageVisibility, 'hidden');
-		assert.ok(result.warnings.some((w: string) => /hidden/.test(w)));
+		assert.deepEqual(result.warnings, []);
 	});
 });

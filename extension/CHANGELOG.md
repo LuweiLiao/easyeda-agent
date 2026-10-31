@@ -5,7 +5,7 @@
 ## [1.15.2] - 2026-10-31
 
 - `pcb.pour.rebuild`（`pcb pour-rebuild`）逐块报告结果并按剩余预算提前收尾：每块铺铜返回 `{primitiveId, net, layer, rebuilt, ms, error}`，单块失败不再被吞掉；开始下一块前比较剩余时间与已见最慢一块，不够就停下，返回 `complete:false` 和未处理的 `pending`，用 `--ids` 接着跑。新增 `nets`、`primitiveIds` 过滤，页面在后台时加警告。此前整板重建（GD32H757_FCU 约 54 块）在 20 秒默认超时内跑不完，daemon 报 `connector did not respond`，调用方不知道重建了哪些，只能等待后猜测。另修正：`rebuildCopperRegion` 返回的是铺铜图元而不是布尔值，按真值判断。
-- `pcb.drc.check` 在页面隐藏（最小化、后台或被完全遮挡）时立即以 `PRECONDITION_REFUSED` 拒绝，提示把窗口切到前台后运行一次；`allowHidden:true` 可强制尝试。此前后台 DRC 永远跑不完，占着队首直到超时，每次重试再排一个。
+- 更正"后台 DRC 永远跑不完、必须切到前台"的说法：2026-10-31 GD32H757_FCU 页面隐藏时原生 DRC 7 秒跑完，0 项。当时的 DRC 超时是排在没跑完的整板铺铜重建后面。`pcb drc` 的超时提示、`ACTION_BUSY` 提示和动作说明改为"别重发，等前面的动作跑完再跑一次"，不再要求切前台。
 - CLI：整板动作有了更长的默认等待——`pcb.pour.rebuild` 180 秒、`pcb.drc.check` 90 秒、`pcb.beautify` 180 秒、`pcb.route.auto` 240 秒；显式更长的超时保留，刻意更短的不变。`easyeda call` 新增 `--timeout`；`pcb pour-rebuild` 新增 `--nets`、`--ids`、`--timeout`，未跑完时非零退出并打印接着跑的命令，超时时提示不要重发。daemon 拒绝同一窗口并发的 `pcb.pour.rebuild`（`ACTION_BUSY`）。
 - MCP：动作工具新增可选 `timeoutSec`，传给 CLI 的 `--timeout`，进程超时随之放宽。
 

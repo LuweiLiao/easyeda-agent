@@ -56,9 +56,11 @@ func requestTimeout(req *protocol.Request) time.Duration {
 
 // nonReentrant lists actions the daemon refuses to run concurrently per window.
 // A DRC re-check piles a second full-canvas recompute onto the webview while
-// the first is still grinding (worst on a background window, where it NEVER
-// finishes); retries therefore make the hang worse,
-// not better. The guard turns that into an immediate, explainable rejection.
+// the first is still grinding; retries therefore make the wait worse, not
+// better. The guard turns that into an immediate, explainable rejection.
+// (The old note that a background window NEVER finishes DRC did not hold:
+// 2026-10-31 GD32H757_FCU finished in 7 s with the page hidden. The timeouts
+// seen then were DRC queued behind a whole-board re-pour.)
 //
 // ── Does the connector's FIFO queue make this redundant? NO — keep it. ─────
 //
@@ -70,8 +72,8 @@ func requestTimeout(req *protocol.Request) time.Duration {
 //     it has no way to decline. A second DRC would sit behind a 60s+ recompute
 //     and then run a second full-canvas recompute on a webview that just
 //     finished one — the caller waits minutes to learn what this guard says
-//     immediately ("one is already running; if it never settles, foreground
-//     the window"). The whole point is to stop the ask, not to sequence it.
+//     immediately ("one is already running; wait for it"). The whole point is
+//     to stop the ask, not to sequence it.
 //   - **Only the daemon can see the second asker.** The guard is what makes a
 //     retry loop — or a second client/agent driving the same board — fail
 //     loudly instead of silently stacking work.
@@ -269,7 +271,7 @@ func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
 			started := time.Now().UTC()
 			errResp := errorResponse(req.ID, "ACTION_BUSY",
 				fmt.Sprintf("%s is already running on this window", req.Action),
-				"wait for the in-flight check to settle; if it never does, EasyEDA is in the background — bring the window to the FOREGROUND and run once (do not retry in a loop)")
+				"wait for the in-flight run to settle, then read back or run once more — do not retry in a loop; a background EasyEDA window is fine")
 			s.audit.Append(fromResponse(started, &req, &errResp))
 			writeJSON(w, http.StatusConflict, errResp)
 			return

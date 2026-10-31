@@ -27,17 +27,18 @@ import (
 	"strings"
 )
 
-// drcTimeoutHint decorates a `pcb drc` dispatch error: when the round-trip
-// timed out, it appends the one fix that actually works — bring EasyEDA to the
-// foreground — because a background/occluded window never finishes the DRC
-// canvas recompute and blind retries only pile more
-// recompute tasks onto the webview. Non-timeout errors pass through untouched.
+// drcTimeoutHint decorates a `pcb drc` dispatch error: on a timeout it says
+// not to resend. The connector runs one action at a time, so a DRC that times
+// out is usually queued behind a long action (a whole-board re-pour), and each
+// resend queues one more check. Background is NOT the cause: on 2026-10-31
+// GD32H757_FCU native DRC finished in 7 s with the page hidden. Non-timeout
+// errors pass through untouched.
 func drcTimeoutHint(err error, stderr io.Writer) error {
 	if err == nil {
 		return nil
 	}
 	if isTimeoutError(err) {
-		fmt.Fprintln(stderr, "hint: DRC did not return in time — EasyEDA is likely in the BACKGROUND; its canvas recompute never finishes there. Bring the EasyEDA window to the foreground and run `pcb drc` ONCE (do not retry in a loop: each retry piles another recompute onto the webview). For a heavy board, raise --timeout.")
+		fmt.Fprintln(stderr, "hint: DRC did not return in time — usually it is queued behind a long action such as a whole-board re-pour. Do NOT resend (each resend queues one more check): wait for the earlier action to finish, then run `pcb drc` once. A background EasyEDA window is fine; DRC does not need the foreground. For a heavy board, raise --timeout.")
 	}
 	return err
 }

@@ -13567,13 +13567,6 @@ const pcbComponentsArrange: Handler = async (payload) => {
 
 const pcbDrcCheck: Handler = async (payload) => {
 	const strict = optionalBoolean(payload, 'strict') !== false;
-	// A hidden page never finishes DRC's canvas recompute: the call holds the
-	// FIFO head until the caller gives up and every retry stacks another one.
-	// Refuse up front so the answer is immediate and names the fix.
-	if (pageVisibility() === 'hidden' && optionalBoolean(payload, 'allowHidden') !== true) {
-		throw new ActionError(ErrorCodes.PRECONDITION_REFUSED,
-			'PCB DRC refused: the EasyEDA page is hidden (minimized, background or fully occluded), where DRC never completes. Bring the EasyEDA window to the foreground and run DRC once; pass allowHidden:true only to try anyway.');
-	}
 	let violations: Array<unknown>;
 	try {
 		// Mirrors sch_Drc.check: the 3rd arg (includeVerboseError) selects the
@@ -14417,11 +14410,8 @@ const pcbPourRebuild: Handler = async (payload) => {
 		nets: nets ?? (net ? [net] : undefined),
 		remainingMs: () => remainingBudgetMs(),
 	});
-	const visibility = pageVisibility();
-	if (visibility === 'hidden') {
-		report.warnings.push('EasyEDA page is hidden (background/occluded); re-pour runs throttled — bring the window to the foreground for long rebuilds');
-	}
-	return { result: { ...report, pageVisibility: visibility ?? null } };
+	// Reported, not acted on: a hidden page is the normal working state.
+	return { result: { ...report, pageVisibility: pageVisibility() ?? null } };
 };
 
 // ─── PCB 走线美化 (拐角圆弧化) ────────────────────────────────────────

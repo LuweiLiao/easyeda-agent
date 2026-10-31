@@ -487,14 +487,15 @@ passed:false or an unavailable verdict returns nonzero; JSON preserves nativeRes
 This is the PCB counterpart to ` + "`easyeda sch drc`" + ` (schematic DRC). The two are
 distinct subcommands and route to different documents automatically — pcb.* targets
 the project's PCB window, schematic.* targets the schematic window — so they never
-cross-fire. The PCB must be the active/foreground document.
+cross-fire. The PCB must be the active document (selected tab); the EasyEDA
+window may stay in the background.
 
 --json flattens the SDK's nested violation tree into one row per violation
 {rule, objType, ruleName, net, x, y, layer, objs, message} with x/y converted to
-REAL mil (the raw leaves store mil/10). --timeout bounds the wait; a background /
-occluded EasyEDA window never finishes DRC's canvas recompute, so on timeout bring
-the window to the FOREGROUND and run once — do NOT retry in a loop (each retry
-piles another recompute onto the webview and makes it worse).
+REAL mil (the raw leaves store mil/10). --timeout bounds the wait (at least 90s).
+A timeout usually means the check is queued behind a long action such as a
+whole-board re-pour — do NOT retry in a loop (each retry queues one more check);
+wait for the earlier action, then run once.
 
 Both output modes exit non-zero when the native verdict is false or unavailable,
 with the result preserved on stdout. --json also retains the original result in

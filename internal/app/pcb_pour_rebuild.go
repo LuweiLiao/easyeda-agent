@@ -46,7 +46,7 @@ func pourRebuildIncompleteError(response []byte, stderr io.Writer) error {
 // pourRebuildTimeoutHint decorates a timed-out re-pour.
 func pourRebuildTimeoutHint(err error, stderr io.Writer) error {
 	if err != nil && isTimeoutError(err) {
-		fmt.Fprintln(stderr, "hint: re-pour did not answer in time and may still be running — do NOT resend. Wait, then read back (`pcb poured-list` / `pcb dump`); if EasyEDA is in the background bring it to the foreground. Narrow the next run with --nets or --ids.")
+		fmt.Fprintln(stderr, "hint: re-pour did not answer in time and may still be running — do NOT resend. Wait, then read back (`pcb poured-list` / `pcb dump`). Narrow the next run with --nets or --ids.")
 	}
 	return err
 }
