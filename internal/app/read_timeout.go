@@ -13,6 +13,15 @@ const (
 	documentOpenReadBudget  = 30 * time.Second
 	schematicPinsReadBudget = 150 * time.Second
 	pourOrderReadBudget     = 60 * time.Second
+	// Whole-board actions. Under the 20s default a full re-pour (~54 pours on
+	// GD32H757_FCU) or a DRC on a busy board timed out while still running,
+	// and the caller could not tell whether it had landed. pour.rebuild now
+	// stops on its own before the budget ends and returns `pending`.
+	pourRebuildBudget = 180 * time.Second
+	pcbDrcBudget      = 90 * time.Second
+	pcbBeautifyBudget = 180 * time.Second
+	// Stay below the MCP adapter's 300s process timeout.
+	pcbAutoRouteBudget = 240 * time.Second
 )
 
 // All CLI dispatch paths converge in postAction, including Apply and layout.
@@ -29,6 +38,14 @@ func effectiveReadTimeout(action string, payload any, requested time.Duration) t
 		budget = 45 * time.Second
 	case "document.open", "schematic.page.open":
 		budget = documentOpenReadBudget
+	case "pcb.pour.rebuild":
+		budget = pourRebuildBudget
+	case "pcb.drc.check":
+		budget = pcbDrcBudget
+	case "pcb.beautify":
+		budget = pcbBeautifyBudget
+	case "pcb.route.auto":
+		budget = pcbAutoRouteBudget
 	case "schematic.components.list":
 		var flags struct {
 			IncludePins bool `json:"includePins"`

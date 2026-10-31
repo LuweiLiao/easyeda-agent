@@ -1380,8 +1380,8 @@ func AllActions() []ActionSpec {
 			Domain:      DomainPcb,
 			Phase:       2,
 			NeedsWindow: true,
-			Description: "Run PCB DRC, normalized to {passed, violations}; violations are grouped by error type then net. Requires the PCB to be the active/foreground document.",
-			Inputs:      []string{"strict optional"},
+			Description: "Run PCB DRC, normalized to {passed, violations}; violations are grouped by error type then net. Requires the PCB to be the active/foreground document. Refused at once with PRECONDITION_REFUSED when the EasyEDA page is hidden (minimized/background/occluded), where DRC never completes; bring the window to the foreground and run once (allowHidden:true forces a try). Gets a 90s budget by default.",
+			Inputs:      []string{"strict optional", "allowHidden optional (default false)"},
 			Outputs:     []string{"passed", "violations"},
 		},
 		{
@@ -1660,9 +1660,9 @@ func AllActions() []ActionSpec {
 			Phase:       2,
 			Mutates:     true,
 			NeedsWindow: true,
-			Description: "Re-pour (recompute poured copper) for all pour regions on the active PCB, optionally filtered by net. Run after moving components/routing so the pour reflows around the new obstacles (rebuildCopperRegion per pour).",
-			Inputs:      []string{"net optional"},
-			Outputs:     []string{"pours", "rebuilt"},
+			Description: "Re-pour (recompute poured copper) on the active PCB after moving components/routing, so pours reflow around the new obstacles (rebuildCopperRegion per pour). One call covers every pour unless narrowed by net/nets/primitiveIds. Reports each pour; per-pour failures are kept, not swallowed. Budget-aware: when the time left cannot cover the slowest pour so far it stops and returns complete:false with the untouched ids in pending — re-run with primitiveIds=pending. Gets a 180s budget by default. Do NOT resend on a timeout (the rebuild may still be running; the daemon refuses a concurrent one with ACTION_BUSY): read back instead. A hidden page runs throttled and adds a warning.",
+			Inputs:      []string{"net optional", "nets optional ([]string)", "primitiveIds optional ([]string, e.g. pending of a partial run)"},
+			Outputs:     []string{"pours (selected)", "rebuilt", "failed", "complete", "results[].primitiveId/net/layer/rebuilt/ms/error", "pending", "notFound", "warnings", "pageVisibility"},
 		},
 		{
 			Name:        "pcb.beautify",

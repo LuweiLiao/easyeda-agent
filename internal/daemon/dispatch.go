@@ -87,6 +87,9 @@ func requestTimeout(req *protocol.Request) time.Duration {
 var nonReentrant = map[string]bool{
 	"pcb.drc.check":       true,
 	"schematic.drc.check": true,
+	// A whole-board re-pour has the same shape: a resend after a timeout
+	// queues a second full rebuild behind the first (2026-10-31 FCU).
+	"pcb.pour.rebuild": true,
 }
 
 // knownActions is the set of Phase 1 action names the daemon will accept.

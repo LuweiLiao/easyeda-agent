@@ -6,6 +6,8 @@ import { PROJECTED_STATE_KEYS } from './projected-keys';
 import { moveSchematicAttribute } from './schematic-attribute-move';
 import { documentSourceGet, documentSourceRoundtrip } from './document-source';
 import { applyAndVerifyPourOrder, preparePourOrder, PourOrderError, verifyPourOrderReadback, type PourOrderVerification } from './pcb-pour-order';
+import { runPourRebuild, type RebuildablePour } from './pcb-pour-rebuild';
+import { remainingBudgetMs } from './request-budget';
 import { listSystemCommonLibrary } from './common-library';
 import { silkSlotFacts, validSilkRect, type SilkLabel } from './pcb-silk-placement';
 /**
@@ -13565,6 +13567,13 @@ const pcbComponentsArrange: Handler = async (payload) => {
 
 const pcbDrcCheck: Handler = async (payload) => {
 	const strict = optionalBoolean(payload, 'strict') !== false;
+	// A hidden page never finishes DRC's canvas recompute: the call holds the
+	// FIFO head until the caller gives up and every retry stacks another one.
+	// Refuse up front so the answer is immediate and names the fix.
+	if (pageVisibility() === 'hidden' && optionalBoolean(payload, 'allowHidden') !== true) {
+		throw new ActionError(ErrorCodes.PRECONDITION_REFUSED,
+			'PCB DRC refused: the EasyEDA page is hidden (minimized, background or fully occluded), where DRC never completes. Bring the EasyEDA window to the foreground and run DRC once; pass allowHidden:true only to try anyway.');
+	}
 	let violations: Array<unknown>;
 	try {
 		// Mirrors sch_Drc.check: the 3rd arg (includeVerboseError) selects the
@@ -14393,19 +14402,26 @@ const pcbPourDelete: Handler = async (payload) => {
 
 const pcbPourRebuild: Handler = async (payload) => {
 	const net = optionalString(payload, 'net');
+	const nets = optionalStringArray(payload, 'nets');
+	const primitiveIds = optionalStringArray(payload, 'primitiveIds');
 	let pours;
 	try {
-		pours = await eda.pcb_PrimitivePour.getAll(net);
+		// A single net narrows the native read; a nets list filters afterwards.
+		pours = await eda.pcb_PrimitivePour.getAll(nets ? undefined : net);
 	}
 	catch (err) {
 		throw edaError(err, 'Failed to list pours for rebuild.');
 	}
-	let rebuilt = 0;
-	for (const p of pours ?? []) {
-		try { if (await p.rebuildCopperRegion()) rebuilt++; }
-		catch { /* per-pour best-effort */ }
+	const report = await runPourRebuild((pours ?? []) as Array<RebuildablePour>, {
+		primitiveIds,
+		nets: nets ?? (net ? [net] : undefined),
+		remainingMs: () => remainingBudgetMs(),
+	});
+	const visibility = pageVisibility();
+	if (visibility === 'hidden') {
+		report.warnings.push('EasyEDA page is hidden (background/occluded); re-pour runs throttled — bring the window to the foreground for long rebuilds');
 	}
-	return { result: { pours: (pours ?? []).length, rebuilt } };
+	return { result: { ...report, pageVisibility: visibility ?? null } };
 };
 
 // ─── PCB 走线美化 (拐角圆弧化) ────────────────────────────────────────

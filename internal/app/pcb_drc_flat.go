@@ -36,15 +36,20 @@ func drcTimeoutHint(err error, stderr io.Writer) error {
 	if err == nil {
 		return nil
 	}
-	var netErr net.Error
-	timedOut := errors.Is(err, context.DeadlineExceeded) ||
-		(errors.As(err, &netErr) && netErr.Timeout()) ||
-		strings.Contains(err.Error(), "context deadline exceeded") ||
-		strings.Contains(err.Error(), "Client.Timeout")
-	if timedOut {
+	if isTimeoutError(err) {
 		fmt.Fprintln(stderr, "hint: DRC did not return in time — EasyEDA is likely in the BACKGROUND; its canvas recompute never finishes there. Bring the EasyEDA window to the foreground and run `pcb drc` ONCE (do not retry in a loop: each retry piles another recompute onto the webview). For a heavy board, raise --timeout.")
 	}
 	return err
+}
+
+// isTimeoutError reports a round trip that ran out of time: the CLI's own
+// deadline or the daemon's structured "context deadline exceeded".
+func isTimeoutError(err error) bool {
+	var netErr net.Error
+	return errors.Is(err, context.DeadlineExceeded) ||
+		(errors.As(err, &netErr) && netErr.Timeout()) ||
+		strings.Contains(err.Error(), "context deadline exceeded") ||
+		strings.Contains(err.Error(), "Client.Timeout")
 }
 
 // drcFlatViolation is one flattened DRC violation row.

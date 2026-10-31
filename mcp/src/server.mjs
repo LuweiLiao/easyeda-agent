@@ -11,8 +11,10 @@ import {
   buildProjectTransferArgs,
   buildActionCallArgs,
   buildWorkflowArgs,
+  callProcessTimeoutMs,
   DOMAIN_NAMES,
   filterActions,
+  MAX_CALL_TIMEOUT_SEC,
   runEasyeda,
   toMcpResult,
 } from './core.mjs';
@@ -55,6 +57,12 @@ const commonRouteProperties = {
     type: 'object',
     description: 'Typed action payload. Use easyeda_actions to inspect the action inputs.',
     additionalProperties: true,
+  },
+  timeoutSec: {
+    type: 'integer',
+    minimum: 1,
+    maximum: MAX_CALL_TIMEOUT_SEC,
+    description: 'Round-trip budget in seconds. Omit normally: whole-board actions (pcb.pour.rebuild 180s, pcb.drc.check 90s, pcb.route.auto 240s) already get a long default. On a timeout do not resend; read back first.',
   },
 };
 
@@ -198,7 +206,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (!action || action.domain !== domain) {
         throw new Error(`action ${input.action || '(missing)'} does not belong to domain ${domain}`);
       }
-      return toMcpResult(await runEasyeda(buildActionCallArgs(action, input)));
+      return toMcpResult(await runEasyeda(buildActionCallArgs(action, input), callProcessTimeoutMs(input)));
     }
     throw new Error(`unknown tool: ${name}`);
   }

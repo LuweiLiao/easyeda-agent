@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.15.2] - 2026-10-31
+
+- `pcb.pour.rebuild`（`pcb pour-rebuild`）逐块报告结果并按剩余预算提前收尾：每块铺铜返回 `{primitiveId, net, layer, rebuilt, ms, error}`，单块失败不再被吞掉；开始下一块前比较剩余时间与已见最慢一块，不够就停下，返回 `complete:false` 和未处理的 `pending`，用 `--ids` 接着跑。新增 `nets`、`primitiveIds` 过滤，页面在后台时加警告。此前整板重建（GD32H757_FCU 约 54 块）在 20 秒默认超时内跑不完，daemon 报 `connector did not respond`，调用方不知道重建了哪些，只能等待后猜测。另修正：`rebuildCopperRegion` 返回的是铺铜图元而不是布尔值，按真值判断。
+- `pcb.drc.check` 在页面隐藏（最小化、后台或被完全遮挡）时立即以 `PRECONDITION_REFUSED` 拒绝，提示把窗口切到前台后运行一次；`allowHidden:true` 可强制尝试。此前后台 DRC 永远跑不完，占着队首直到超时，每次重试再排一个。
+- CLI：整板动作有了更长的默认等待——`pcb.pour.rebuild` 180 秒、`pcb.drc.check` 90 秒、`pcb.beautify` 180 秒、`pcb.route.auto` 240 秒；显式更长的超时保留，刻意更短的不变。`easyeda call` 新增 `--timeout`；`pcb pour-rebuild` 新增 `--nets`、`--ids`、`--timeout`，未跑完时非零退出并打印接着跑的命令，超时时提示不要重发。daemon 拒绝同一窗口并发的 `pcb.pour.rebuild`（`ACTION_BUSY`）。
+- MCP：动作工具新增可选 `timeoutSec`，传给 CLI 的 `--timeout`，进程超时随之放宽。
+
 ## [1.15.1] - 2026-10-30
 
 - 新增 `pcb export-gerber`（`pcb.export.gerber`）：经官方 beta `getGerberFile` 按宿主一键导出默认值导出制版文件，保留官方 ZIP 并校验字节、哈希、ZIP 路径与展开上限，按内容识别 RS-274X Gerber 与 Excellon 钻孔，缺 Gerber、钻孔或板框层即拒收；通过后解压到 `files/` 并写逐文件清单。只证明文件完整可解析，不代替独立的制造核对。

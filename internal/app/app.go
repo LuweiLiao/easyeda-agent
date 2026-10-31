@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zhoushoujianwork/easyeda-agent/internal/protocol"
@@ -215,6 +216,7 @@ func newActionsCmd(stdout, _ io.Writer) *cobra.Command {
 
 func newCallCmd(cfg *appConfig, stdout, stderr io.Writer) *cobra.Command {
 	var window, payload string
+	var timeoutSec int
 
 	cmd := &cobra.Command{
 		Use:   "call <action>",
@@ -233,10 +235,14 @@ func newCallCmd(cfg *appConfig, stdout, stderr io.Writer) *cobra.Command {
 				}
 			}
 
+			if timeoutSec > 0 {
+				return dispatchTimed(cfg, action, window, payloadMap, time.Duration(timeoutSec)*time.Second, stdout, stderr)
+			}
 			return dispatch(cfg, action, window, payloadMap, stdout, stderr)
 		},
 	}
 	cmd.Flags().StringVar(&window, "window", "", "EasyEDA window ID")
 	cmd.Flags().StringVar(&payload, "payload", "", "action payload as a JSON object")
+	cmd.Flags().IntVar(&timeoutSec, "timeout", 0, "round-trip timeout in seconds (default 20; whole-board actions such as pcb.pour.rebuild and pcb.drc.check already get a longer floor)")
 	return cmd
 }

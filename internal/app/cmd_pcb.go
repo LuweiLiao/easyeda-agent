@@ -2219,21 +2219,58 @@ instead of being reported as empty.`,
 		pcb.AddCommand(c)
 	}
 	{
-		var net string
+		var net, netsRaw, idsRaw string
+		var timeoutSec int
 		c := &cobra.Command{
-			Use:     "pour-rebuild",
-			Short:   "Re-pour (recompute) all pours after layout/routing changes",
-			Args:    cobra.NoArgs,
-			Example: `  easyeda pcb pour-rebuild`,
+			Use:   "pour-rebuild",
+			Short: "Re-pour (recompute) pours after layout/routing changes, per-pour report",
+			Long: `Re-pour copper regions on the active PCB and report each pour
+{primitiveId, net, layer, rebuilt, ms, error}. One call re-pours every pour
+unless narrowed by --net / --nets / --ids.
+
+The connector watches the request budget: when the time left cannot cover the
+slowest pour so far it stops and returns complete:false with the untouched ids
+in pending. This command then exits non-zero and prints the follow-up
+command. Run it once — do not resend on a timeout; a rebuild that is still
+running queues every retry behind itself.`,
+			Args: cobra.NoArgs,
+			Example: `  easyeda pcb pour-rebuild
+  easyeda pcb pour-rebuild --nets GND,+3V3_MCU
+  easyeda pcb pour-rebuild --ids id1,id2      # finish the pending ids of a partial run`,
 			RunE: func(cmd *cobra.Command, args []string) error {
 				payload := map[string]any{}
 				if net != "" {
 					payload["net"] = net
 				}
-				return dispatch(cfg, "pcb.pour.rebuild", window, payload, stdout, stderr)
+				if netsRaw != "" {
+					nets, err := parseIDList(netsRaw)
+					if err != nil {
+						return err
+					}
+					payload["nets"] = nets
+				}
+				if idsRaw != "" {
+					ids, err := parseIDList(idsRaw)
+					if err != nil {
+						return err
+					}
+					payload["primitiveIds"] = ids
+				}
+				var response bytes.Buffer
+				err := dispatchTimed(cfg, "pcb.pour.rebuild", window, payload, time.Duration(timeoutSec)*time.Second, &response, stderr)
+				if _, writeErr := stdout.Write(response.Bytes()); writeErr != nil {
+					return writeErr
+				}
+				if err != nil {
+					return pourRebuildTimeoutHint(err, stderr)
+				}
+				return pourRebuildIncompleteError(response.Bytes(), stderr)
 			},
 		}
-		c.Flags().StringVar(&net, "net", "", "filter by net name")
+		c.Flags().StringVar(&net, "net", "", "only pours on this net")
+		c.Flags().StringVar(&netsRaw, "nets", "", "only pours on these nets — CSV: GND,+3V3")
+		c.Flags().StringVar(&idsRaw, "ids", "", "only these pour primitiveIds — CSV (e.g. the pending list of a partial run)")
+		c.Flags().IntVar(&timeoutSec, "timeout", 0, "round-trip timeout in seconds (default 180)")
 		pcb.AddCommand(c)
 	}
 

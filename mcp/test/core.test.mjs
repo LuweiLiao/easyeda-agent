@@ -6,10 +6,23 @@ import {
   buildCallArgs,
   buildActionCallArgs,
   buildWorkflowArgs,
+  callProcessTimeoutMs,
+  DEFAULT_CALL_PROCESS_TIMEOUT_MS,
   filterActions,
   parseOutput,
   toMcpResult,
 } from '../src/core.mjs';
+
+test('timeoutSec reaches the CLI and the process outlives it', () => {
+  assert.deepEqual(
+    buildCallArgs('pcb.pour.rebuild', { project: 'P', doc: 'PCB1', timeoutSec: 400 }),
+    ['--project', 'P', '--doc', 'PCB1', 'call', 'pcb.pour.rebuild', '--timeout', '400'],
+  );
+  assert.equal(buildCallArgs('pcb.pour.rebuild', { timeoutSec: 0 }).includes('--timeout'), false);
+  assert.equal(callProcessTimeoutMs({}), DEFAULT_CALL_PROCESS_TIMEOUT_MS);
+  assert.equal(callProcessTimeoutMs({ timeoutSec: 60 }), DEFAULT_CALL_PROCESS_TIMEOUT_MS);
+  assert.equal(callProcessTimeoutMs({ timeoutSec: 400 }), 430_000);
+});
 
 test('buildCallArgs pins project/doc and keeps payload structured', () => {
   assert.deepEqual(

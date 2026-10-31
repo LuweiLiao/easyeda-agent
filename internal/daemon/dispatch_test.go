@@ -104,9 +104,13 @@ func TestAcquireExclusive(t *testing.T) {
 
 func TestNonReentrantSet(t *testing.T) {
 	// The guard exists for DRC (A4: background-window recompute never settles;
-	// stacked retries make it worse). Guard both editors' DRC, nothing else.
+	// stacked retries make it worse) and for the whole-board re-pour, whose
+	// timed-out resends queue the same way.
 	if !nonReentrant["pcb.drc.check"] || !nonReentrant["schematic.drc.check"] {
 		t.Fatal("both DRC actions must be non-reentrant")
+	}
+	if !nonReentrant["pcb.pour.rebuild"] {
+		t.Fatal("pcb.pour.rebuild must be non-reentrant")
 	}
 	if nonReentrant["pcb.components.list"] {
 		t.Fatal("reads must not be guarded")

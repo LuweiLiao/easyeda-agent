@@ -104,7 +104,20 @@ export function buildCallArgs(action, input = {}) {
     args.push('--payload', JSON.stringify(input.payload));
   }
   if (input.window) args.push('--window', input.window);
+  if (Number.isInteger(input.timeoutSec) && input.timeoutSec > 0) {
+    args.push('--timeout', String(input.timeoutSec));
+  }
   return args;
+}
+
+// The CLI owns the action budget (long floors for whole-board actions); the
+// process timeout only has to outlive it, or a slow call is killed mid-reply.
+export const DEFAULT_CALL_PROCESS_TIMEOUT_MS = 300_000;
+export const MAX_CALL_TIMEOUT_SEC = 600;
+
+export function callProcessTimeoutMs(input = {}) {
+  if (!Number.isInteger(input.timeoutSec) || input.timeoutSec <= 0) return DEFAULT_CALL_PROCESS_TIMEOUT_MS;
+  return Math.max(DEFAULT_CALL_PROCESS_TIMEOUT_MS, (input.timeoutSec + 30) * 1000);
 }
 
 export function buildWorkflowArgs(input) {
