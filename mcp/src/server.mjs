@@ -18,6 +18,18 @@ import {
   runEasyeda,
   toMcpResult,
 } from './core.mjs';
+import {
+  ApplyGuard,
+  buildCliArgs,
+  buildCliHelpArgs,
+  cliProcessTimeoutMs,
+  MAX_CLI_TIMEOUT_SEC,
+  readImageContent,
+  resolvePath,
+  shapeCliResult,
+} from './cli.mjs';
+
+const applyGuard = new ApplyGuard();
 
 const catalogExecution = await runEasyeda(['actions'], 30_000);
 if (!catalogExecution.ok || !Array.isArray(catalogExecution.result)) {
@@ -176,7 +188,73 @@ const tools = [
     },
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
   },
+  {
+    name: 'easyeda_cli',
+    title: 'Run any easyeda CLI command',
+    description: 'Run one easyeda CLI command as an argv array (no shell, no quoting). Covers what the typed-action tools cannot: batch writes (apply), whole-board reads (pcb dump --out), rendering (pcb layout render, sch export-image), doc reload/save, pour-rebuild, offline planners and checks. Look commands up with easyeda_cli_help. apply must pass a --dry-run on the same playbook bytes in this session before the real run. Pass image=<png path> to get the rendered picture back. Works with EasyEDA in the background. On a timeout do not resend: read back first.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        argv: {
+          type: 'array', minItems: 1, items: { type: 'string' },
+          description: 'Command and flags without the leading "easyeda", e.g. ["pcb", "dump", "--include-copper", "--out", "D:/work/board.json"]. Use absolute paths.',
+        },
+        project: commonRouteProperties.project,
+        doc: commonRouteProperties.doc,
+        window: commonRouteProperties.window,
+        cwd: { type: 'string', description: 'Working directory for the command (relative paths resolve here).' },
+        timeoutSec: { type: 'integer', minimum: 1, maximum: MAX_CLI_TIMEOUT_SEC, description: 'Process timeout in seconds (default 300).' },
+        image: { type: 'string', description: 'After the command, return this image file as image content (png/jpg/webp; svg is rasterized to png) — e.g. the --out of pcb layout render.' },
+      },
+      required: ['argv'],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+  },
+  {
+    name: 'easyeda_cli_help',
+    title: 'Look up easyeda CLI commands',
+    description: 'List easyeda CLI commands with their flags (offline, no daemon). path narrows to a subtree such as "pcb layout"; long=true adds the full help and examples.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Command path prefix, e.g. "pcb", "sch export-image", "apply".' },
+        long: { type: 'boolean', description: 'Include Long help and Example text (use with a narrow path).' },
+      },
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
+  {
+    name: 'easyeda_image',
+    title: 'Show a local image',
+    description: 'Return a local png/jpg/webp file, or an svg rasterized to png (a render, export or snapshot), as image content so it can be looked at.',
+    inputSchema: {
+      type: 'object',
+      properties: { path: { type: 'string', minLength: 1, description: 'Absolute image path.' } },
+      required: ['path'],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  },
 ];
+
+async function runCliTool(input) {
+  const args = buildCliArgs(input);
+  const guard = await applyGuard.check(input.argv, input.cwd);
+  const execution = await runEasyeda(args, cliProcessTimeoutMs(input), { cwd: input.cwd });
+  applyGuard.record(guard, execution.ok);
+  const result = toMcpResult(shapeCliResult(execution, args));
+  if (input.image) {
+    try {
+      result.content.push(await readImageContent(resolvePath(input.image, input.cwd)));
+    }
+    catch (err) {
+      result.content.push({ type: 'text', text: `image not returned: ${err.message}` });
+    }
+  }
+  return result;
+}
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
 
@@ -188,6 +266,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     if (name === 'easyeda_health') {
       return toMcpResult(await runEasyeda(['daemon', 'health'], 30_000));
+    }
+    if (name === 'easyeda_cli') {
+      return await runCliTool(input);
+    }
+    if (name === 'easyeda_cli_help') {
+      return toMcpResult(await runEasyeda(buildCliHelpArgs(input), 30_000));
+    }
+    if (name === 'easyeda_image') {
+      return { content: [await readImageContent(input.path)] };
     }
     if (name === 'easyeda_actions') {
       const filtered = filterActions(actions, input);

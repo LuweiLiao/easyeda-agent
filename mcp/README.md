@@ -1,15 +1,50 @@
 # easyeda-agent MCP
 
-Local stdio MCP adapter over the existing `easyeda` CLI/daemon. It exposes 12
+Local stdio MCP adapter over the existing `easyeda` CLI/daemon. It exposes 15
 tools: connection health, action discovery, one tool for each of the seven safe
-action domains, circuit blocks, the guarded workflow state machine, and project transfer. The
-arbitrary-JavaScript debug domain is deliberately not exposed.
+action domains, circuit blocks, the guarded workflow state machine, project
+transfer, and three for the full CLI (`easyeda_cli`, `easyeda_cli_help`,
+`easyeda_image`). The arbitrary-JavaScript debug domain is deliberately not exposed.
 
 ```bash
-npm ci --ignore-scripts
+npm ci
 EASYEDA_BIN=/absolute/path/to/easyeda npm test
 EASYEDA_BIN=/absolute/path/to/easyeda npm start
 ```
+
+`npm ci` (not `--ignore-scripts`) so `@resvg/resvg-js` installs its native
+binary; it rasterizes SVG renders for `easyeda_image`.
+
+## Full CLI through MCP
+
+The typed-action tools run one action per call. Everything else the CLI does —
+batch writes (`apply`), whole-board reads (`pcb dump --out`), rendering
+(`pcb layout render`, `sch export-image`), `doc reload`, `pcb pour-rebuild`,
+offline planners and checks — runs through `easyeda_cli`, so an agent never has
+to shell out:
+
+```json
+{ "argv": ["pcb", "dump", "--include-copper", "--out", "D:/work/board.json"],
+  "project": "GD32H757_FCU", "doc": "<pcb uuid>" }
+```
+
+- `argv` is passed as an array with no shell, so nothing needs quoting. Use
+  absolute paths (or set `cwd`). `project`/`doc`/`window` are tool inputs; the
+  routing flags are refused inside `argv`.
+- `daemon start|stop|restart`, `update`, `skill update` and `debug` manage the
+  agent itself and are refused.
+- `apply` must first pass `--dry-run` on the same playbook bytes in this server
+  session; any edit to the file needs a new dry-run.
+- `image: "<path>"` returns that file as image content after the command
+  (png/jpg/webp, SVG rasterized to PNG), e.g. the `--out` of
+  `pcb layout render --actual`. `easyeda_image` shows an existing file.
+- Stdout over 200 000 characters is cut with a hint to write to a file instead.
+- Look commands up with `easyeda_cli_help` (`path: "pcb layout"`, `long: true`
+  for full help and examples). It reads the hidden `easyeda cli-tree`.
+
+All of it works with EasyEDA in the background (2026-10-31 GD32H757_FCU, page
+hidden: dump 1.2 s, actual render 3.4 s, schematic export 6.8 s, DRC 7.3 s,
+whole-board re-pour of 54 pours 28.9 s).
 
 Codex registration:
 

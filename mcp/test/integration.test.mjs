@@ -21,8 +21,23 @@ test('stdio MCP initializes, lists tools, and invokes offline discovery', async 
   try {
     await client.connect(transport);
     const listed = await client.listTools();
-    assert.equal(listed.tools.length, 12);
+    assert.equal(listed.tools.length, 15);
     assert.ok(listed.tools.some((tool) => tool.name === 'easyeda_pcb'));
+    for (const name of ['easyeda_cli', 'easyeda_cli_help', 'easyeda_image']) {
+      assert.ok(listed.tools.some((tool) => tool.name === name), name);
+    }
+
+    const help = await client.callTool({ name: 'easyeda_cli_help', arguments: { path: 'pcb dump' } });
+    assert.equal(help.isError, false);
+    assert.ok(help.structuredContent.commands.some((c) => c.path.join(' ') === 'pcb dump'));
+
+    const offline = await client.callTool({ name: 'easyeda_cli', arguments: { argv: ['version'] } });
+    assert.equal(offline.isError, false);
+    assert.match(offline.content[0].text, /easyeda-agent/);
+
+    const blocked = await client.callTool({ name: 'easyeda_cli', arguments: { argv: ['daemon', 'stop'] } });
+    assert.equal(blocked.isError, true);
+    assert.match(blocked.content[0].text, /not available through MCP/);
     assert.ok(!listed.tools.some((tool) => tool.name === 'easyeda_debug'));
 
     assert.ok(listed.tools.some((tool) => tool.name === 'easyeda_project_transfer'));

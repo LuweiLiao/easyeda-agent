@@ -17,12 +17,13 @@ export function easyedaBinary() {
   return process.env.EASYEDA_BIN || 'easyeda';
 }
 
-export async function runEasyeda(args, timeoutMs = 300_000) {
+export async function runEasyeda(args, timeoutMs = 300_000, { cwd } = {}) {
   try {
     const { stdout, stderr } = await execFileAsync(easyedaBinary(), args, {
       encoding: 'utf8',
       maxBuffer: 32 * 1024 * 1024,
       timeout: timeoutMs,
+      ...(cwd ? { cwd } : {}),
     });
     return {
       ok: true,

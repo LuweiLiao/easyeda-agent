@@ -15,6 +15,7 @@
     "node": ">=20.17.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.30.0"
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "@resvg/resvg-js": "2.6.2"
   }
 }
